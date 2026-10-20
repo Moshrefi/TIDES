@@ -85,6 +85,8 @@ python scripts/download.py --dataset hsergb
 
 ## Full pipeline (one sequence)
 
+Step-by-step walkthrough with expected results: [docs/run_eds_guide.md](docs/run_eds_guide.md).
+
 ```bash
 # 1. sequence -> 4DGS scene (GT poses for EDS; --run_colmap for DSEC; --easi3r_dir for HS/BS-ERGB)
 python scripts/prepare_scene.py --preset eds --seq_dir data/eds/00_peanuts_dark \

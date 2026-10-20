@@ -39,6 +39,9 @@ PRESETS = {
                  calib="calibration/cam_to_cam.yaml"),
     "hsergb": dict(frames_glob="images/*.png", timestamps="images/timestamp.txt"),
     "bsergb": dict(frames_glob="images/*.png", timestamps="images/timestamp.txt"),
+    # Sequences converted by the Evtween converters (frames/, frame_ts.npy, ev_*.npy).
+    # Frames are already in the event camera's pixel grid, so events need no extra camera.
+    "evtween": dict(frames_glob="frames/*.png", timestamps="frame_ts.npy"),
 }
 
 
@@ -50,7 +53,12 @@ def _first(seq_dir, pattern):
 
 
 def read_timestamps(path, n_frames):
-    """One timestamp per line (last column used). Units auto-detected: us if values > 1e4."""
+    """One timestamp per line (last column used), or a .npy array. Units auto-detected: us if values > 1e4."""
+    if path.endswith(".npy"):
+        t = np.load(path).astype(np.float64).reshape(-1)
+        if len(t) != n_frames:
+            print(f"[warn] {len(t)} timestamps for {n_frames} frames; truncating to the shorter")
+        return t * (1e-6 if np.nanmax(t) > 1e4 else 1.0)
     rows = [ln.split() for ln in open(path) if ln.strip() and not ln.startswith("#")]
     t = np.array([float(r[-1].replace(",", "")) for r in rows])
     if len(t) != n_frames:

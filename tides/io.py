@@ -91,7 +91,14 @@ def load_timelens_events(seq_dir: str) -> dict:
                 p=np.where(p[o] > 0, 1, -1).astype(np.int8))
 
 
-READERS = {"dsec": load_dsec_events, "eds": load_eds_events, "hsergb": load_timelens_events,
+def load_evtween_events(seq_dir: str) -> dict:
+    """Evtween layout: <seq>/ev_{t,x,y,p}.npy (t in seconds, same clock as frame_ts.npy)."""
+    d = {k: np.load(os.path.join(seq_dir, f"ev_{k}.npy")) for k in "txyp"}
+    return dict(t=d["t"].astype(np.float64), x=d["x"].astype(np.int64), y=d["y"].astype(np.int64),
+                p=np.where(d["p"] > 0, 1, -1).astype(np.int8))
+
+
+READERS = {"evtween": load_evtween_events, "dsec": load_dsec_events, "eds": load_eds_events, "hsergb": load_timelens_events,
            "bsergb": load_timelens_events}
 
 

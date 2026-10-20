@@ -7,7 +7,7 @@ because it is the simplest of the four datasets:
 * it ships ground-truth camera poses, so you don't need COLMAP or Easi3R;
 * its sequence `00_peanuts_dark` is the one shown in Fig. 3 of the paper.
 
-Tested setup: a Linux GPU node with an A100, CUDA 11.8 or 12.x, and conda.
+Target setup: Rails, one A100, CUDA 11.8 or 12.x, conda. Not yet run end-to-end on real data.
 
 ## 0. What happens, in one picture
 
@@ -51,34 +51,47 @@ Quick check that the simulator runs on the GPU (about a minute):
 python scripts/demo_synthetic.py --device cuda --out outputs/demo
 ```
 
-## 2. Download one EDS sequence (~a few GB)
+## 2. Use your Evtween copy of EDS
 
-```bash
-python scripts/download.py --dataset eds --seq 00_peanuts_dark
-ls data/eds/00_peanuts_dark
+Use the EDS sequences you already converted for Evtween (`EDS/eds.py`). That
+conversion warps the RGB frames into the event camera's pixel grid, so
+rendered frames and real events line up pixel for pixel. That is exactly what
+the comparison needs. Each sequence folder looks like:
+
+```
+data/eds/{train,test}/<sequence>/frames/*.png  frame_ts.npy  ev_t.npy ev_x.npy ev_y.npy ev_p.npy
 ```
 
-If the download link fails, open https://rpg.ifi.uzh.ch/eds.html, copy the
-link for `00_peanuts_dark`, and pass it with `--url <link>`. If you already
-have EDS on disk, skip the download and use that folder as `--seq_dir` below.
-
-Check that the folder has the images, their timestamps, `stamped_groundtruth.txt`
-(the poses), the events `.h5` file and a calibration file. Note the
-names if they differ from `images/`, `images_timestamps.txt`, `events.h5`, `calib.yaml`.
-
-## 3. Build the training scene
-
-Start with a short window of about 3 seconds so the first run is quick:
+Pick `00_peanuts_dark`, which is in Fig. 3 of the paper:
 
 ```bash
-python scripts/prepare_scene.py --preset eds --seq_dir data/eds/00_peanuts_dark \
-    --out scenes/eds_00 --max_frames 90
+SEQ=/path/to/evtween/data/eds/train/00_peanuts_dark   # or .../test/..., wherever it landed
+ls $SEQ/frames | head -3 && python -c "import numpy as np; t=np.load('$SEQ/frame_ts.npy'); print(len(t), t[-1])"
 ```
 
-* If it says `intrinsics unknown`, add `--intrinsics FX FY CX CY`, taking the
-  numbers from the sequence's calibration file (RGB camera).
-* If your files have other names, use `--frames_glob`, `--timestamps` and `--poses_tum`.
-* At the end it prints the frame count and duration. Check that they look right.
+If you don't have it converted, run `python scripts/download.py --dataset eds --seq 00_peanuts_dark`
+in TIDES, then `python EDS/eds.py --raw <folder> --only 00_peanuts_dark --out data/eds`
+from the Evtween `multi-dataset-loader` branch.
+
+## 3. Build the training scene (camera poses from COLMAP)
+
+The converted frames no longer match EDS's ground-truth pose frame, so we
+estimate poses with COLMAP. EDS scenes are static and only the camera moves,
+which is the case the paper also handles with COLMAP. Start with about 2
+seconds (150 frames at 75 fps) so the first run is quick:
+
+```bash
+conda install -c conda-forge colmap -y      # once, if `colmap` is not available
+python scripts/prepare_scene.py --preset evtween --seq_dir $SEQ \
+    --out scenes/eds_00 --max_frames 150 --run_colmap
+```
+
+* COLMAP prints how many frames it registered. If it drops many, use
+  `--stride 2`, which gives it larger baselines.
+* At the end the script prints the frame count and duration. Check that they look right.
+* Small caveat: the converted frames keep the event camera's mild lens
+  distortion, and TIDES renders an ideal pinhole camera, so pixels near the
+  border can be off by about a pixel.
 
 ## 4. Fit the 4D Gaussian scene (the slow step, ~30-60 min on an A100)
 
@@ -115,7 +128,7 @@ settings and timing. Contrast thresholds can be changed with, for example,
 ## 6. Compare with the real events
 
 ```bash
-python scripts/evaluate.py --gt_dataset eds --gt_dir data/eds/00_peanuts_dark \
+python scripts/evaluate.py --gt_dataset evtween --gt_dir $SEQ \
     --pred outputs/events/eds_00_10x.h5 --pred outputs/events/eds_00_adaptive.h5 \
     --pred outputs/events/eds_00_fd.h5 --json outputs/eds_00_metrics.json
 ```
@@ -146,6 +159,9 @@ needs to change to compare absolute numbers.
 ## 8. Then scale up
 
 * Run steps 3-6 on the other EDS sequences and average the results, as the paper does.
+* Baselines for the same row (V2E, DVS-Voltmeter, ICNS/IEBCS) already have adapters in Evtween's
+  `benchmark/event-generation` branch. Their `events.npz` files (t, x, y, p) can be passed to
+  `scripts/evaluate.py --pred`. Use the same frames, crop and time window as TIDES.
 * DSEC: `--preset dsec --run_colmap`, with poses from COLMAP.
 * HS-ERGB / BS-ERGB: poses come from Easi3R, and those datasets need their
   registration links.

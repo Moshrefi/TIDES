@@ -1,5 +1,6 @@
 torch>=2.1
-numpy
+numpy<2  # older torch builds (e.g. cu121 wheels) are compiled against NumPy 1.x
+pytest
 scipy
 pyyaml
 h5py

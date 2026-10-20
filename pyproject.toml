@@ -7,7 +7,7 @@ name = "tides-reimplementation"
 version = "0.1.0"
 description = "Unofficial reimplementation of TIDES: Time-Derivative Event Simulation via Deformable Reconstruction"
 requires-python = ">=3.9"
-dependencies = ["torch>=2.1", "numpy", "scipy", "pyyaml", "h5py", "pillow", "tqdm"]
+dependencies = ["torch>=2.1", "numpy<2", "scipy", "pyyaml", "h5py", "pillow", "tqdm"]
 
 [tool.setuptools.packages.find]
 include = ["tides*"]

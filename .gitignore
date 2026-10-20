@@ -1,0 +1,20 @@
+# Large artefacts are downloaded or produced locally, never committed.
+data/
+weights/
+outputs/
+scenes/
+third_party/
+*.pth
+*.pt
+*.ckpt
+*.bin
+*.tar
+*.zip
+*.tgz
+*.h5
+*.npz
+*.part
+__pycache__/
+*.egg-info/
+.venv/
+.pytest_cache/

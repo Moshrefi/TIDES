@@ -1,0 +1,9 @@
+# Metric settings. The paper's supplementary (binning, windowing, normalisation)
+# is not public; these are our defaults. Keep them fixed across simulators.
+window: 0.05        # s
+v: 1000.0           # px/s in the (x, y, v t) Chamfer embedding
+voxel: 1.0          # px, density control
+normalize: true     # Chamfer / image diagonal
+isi_spike_eps: 1.0e-5
+fano_bin_px: 8
+fano_bin_t: 0.002

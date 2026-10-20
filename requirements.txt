@@ -1,0 +1,10 @@
+torch>=2.1
+numpy
+scipy
+pyyaml
+h5py
+pillow
+tqdm
+# optional
+# numba            # faster readout arbiter
+# huggingface_hub  # MonST3R weights for Easi3R

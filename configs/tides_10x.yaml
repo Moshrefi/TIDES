@@ -1,0 +1,20 @@
+# TIDES with a fixed 10x query budget (Table 1, "TIDES (10x)").
+queries_per_frame: 10
+adaptive: false
+slope: analytic
+mask_mixed: true
+background: [0.0, 0.0, 0.0]
+render:
+  tile: 16
+  tau_max: 0.99
+  log_eps: 0.001
+comparator:
+  C_pos: 0.2
+  C_neg: 0.2
+  sigma_C: 0.03
+  n_max: 8
+  local_model: quadratic
+risk:
+  b_min: 0.05
+arbiter:
+  enabled: true

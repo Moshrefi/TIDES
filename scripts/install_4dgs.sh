@@ -49,5 +49,13 @@ pip install -c "$PIN" addict lpips plyfile pytorch_msssim open3d "imageio[ffmpeg
 H=$UP/submodules/depth-diff-gaussian-rasterization/cuda_rasterizer/rasterizer_impl.h
 grep -q "<cstdint>" "$H" || sed -i '1i #include <cstdint>' "$H"
 
+# Newer CUDA headers no longer pull in <cfloat> (FLT_MAX) for simple-knn.
+K=$UP/submodules/simple-knn/simple_knn.cu
+grep -q "<cfloat>" "$K" || sed -i '1i #include <cfloat>' "$K"
+
+# Build for both A100 (8.0) and H100 (9.0) so the same env works on any Rails GPU node;
+# by default only the GPU of the current node is targeted.
+export TORCH_CUDA_ARCH_LIST="${TORCH_CUDA_ARCH_LIST:-8.0;9.0}"
+rm -rf "$UP/submodules/simple-knn/build" "$UP/submodules/depth-diff-gaussian-rasterization/build"
 pip install -c "$PIN" --no-build-isolation "$UP/submodules/depth-diff-gaussian-rasterization" "$UP/submodules/simple-knn"
 python -c "import diff_gaussian_rasterization, simple_knn._C, mmcv; print('4DGaussians ready')"

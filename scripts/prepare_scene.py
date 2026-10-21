@@ -295,6 +295,7 @@ def main():
     ap.add_argument("--t_start", type=float, default=None, help="seconds, absolute")
     ap.add_argument("--t_end", type=float, default=None)
     ap.add_argument("--stride", type=int, default=1)
+    ap.add_argument("--no_normalize", action="store_true", help="keep the pose source's scale and origin")
     ap.add_argument("--max_frames", type=int, default=None)
     ap.add_argument("--near", type=float, default=0.1)
     ap.add_argument("--far", type=float, default=50.0)
@@ -404,11 +405,26 @@ def main():
     if K is None:
         raise SystemExit("intrinsics unknown; pass --intrinsics FX FY CX CY")
 
+    # COLMAP's scale is arbitrary (here it came out ~100 units wide). 4DGS's HyperNeRF
+    # settings (near/far planes, learning rates, HexPlane bounds) assume a scene of a few
+    # units, so centre and rescale it. Rendering is unchanged by this similarity transform.
+    norm = None
+    if points is not None and len(points) >= 10 and not a.no_normalize:
+        c = np.median(points, axis=0)
+        r = np.linalg.norm(points - c, axis=1)
+        s = 1.0 / max(float(np.percentile(r, 90)), 1e-9)
+        keep = r * s < 10.0  # drop far outliers, they become huge initial Gaussians
+        points = (points[keep] - c) * s
+        colors = colors[keep] if colors is not None else None
+        p_c2w = (p_c2w - c) * s
+        norm = dict(center=c.tolist(), scale=s)
+        print(f"[norm] scene centred and scaled by {s:.4g}; dropped {int((~keep).sum())} outlier points")
+
     R_w2c = R_c2w.transpose(0, 2, 1)
     t_w2c = -np.einsum("nij,nj->ni", R_w2c, p_c2w)
     seq = Sequence(frames, ts, K, (W, H), R_w2c, t_w2c, points, colors, ev_cam,
                    meta=dict(preset=a.preset, seq_dir=os.path.abspath(a.seq_dir),
-                             remap=remap.to_dict() if remap is not None else None))
+                             remap=remap.to_dict() if remap is not None else None, normalize=norm))
     os.makedirs(a.out, exist_ok=True)
     export_hypernerf(seq, a.out, a.near, a.far)
     seq.save(os.path.join(a.out, "tides_sequence.json"))

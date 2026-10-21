@@ -10,6 +10,7 @@ UP="$ROOT/third_party/4DGaussians"
 CONFIG="${TIDES_4DGS_CONFIG:-$UP/arguments/hypernerf/default.py}"
 OUT="$ROOT/outputs/4dgs/$NAME"
 mkdir -p "$OUT"
+"${PYTHON:-python}" "$ROOT/scripts/patches/guard_4dgs_render.py" "$UP"
 cd "$UP"
 "${PYTHON:-python}" train.py -s "$SCENE" --port 6017 --expname "tides_$NAME" --configs "$CONFIG" --model_path "$OUT" "$@"
 # Some 4DGaussians versions ignore --model_path and write to ./output/<expname>.

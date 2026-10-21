@@ -12,7 +12,7 @@ if [ ! -d "$UP/.git" ]; then
   git clone https://github.com/hustvl/4DGaussians.git "$UP"
 fi
 # Only the two CUDA submodules (skip the large SIBR viewer).
-git -C "$UP" submodule update --init submodules/depth-diff-gaussian-rasterization || true
+git -C "$UP" submodule update --init --recursive submodules/depth-diff-gaussian-rasterization  # includes glm || true
 if ! git -C "$UP" submodule update --init submodules/simple-knn; then
   echo "[warn] gitlab.inria.fr unreachable; using the GitHub mirror of simple-knn"
   rm -rf "$UP/submodules/simple-knn"

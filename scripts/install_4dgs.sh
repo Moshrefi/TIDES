@@ -6,6 +6,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 bash scripts/setup_third_party.sh
+[ -f third_party/4DGaussians/submodules/depth-diff-gaussian-rasterization/third_party/glm/glm/glm.hpp ] || { echo "glm missing in the rasterizer; check network access to github.com"; exit 1; }
 UP=third_party/4DGaussians
 
 TORCH_CUDA=$(python -c "import torch; print(torch.version.cuda or '')")
@@ -19,9 +20,9 @@ NVCC_CUDA=$(nvcc --version | sed -n 's/.*release \([0-9]*\.[0-9]*\).*/\1/p')
 echo "PyTorch $TORCH_VER (CUDA $TORCH_CUDA), nvcc CUDA $NVCC_CUDA"
 if [ "${TORCH_CUDA%%.*}" != "${NVCC_CUDA%%.*}" ]; then
   echo "PyTorch was built for CUDA $TORCH_CUDA but nvcc is CUDA $NVCC_CUDA; the extensions cannot build."
-  echo "Reinstall a PyTorch build for your nvcc, then rerun this script, e.g. for CUDA 12.1:"
-  echo "  pip install torch==2.5.1 torchvision==0.20.1 --index-url https://download.pytorch.org/whl/cu121"
-  echo "(or load a CUDA module matching $TORCH_CUDA)."
+  echo "Load the CUDA toolkit matching PyTorch (see 'module avail cuda'), e.g.:"
+  echo "  module load cuda/$TORCH_CUDA"
+  echo "then rerun this script. (Or reinstall PyTorch for your nvcc's CUDA version.)"
   exit 1
 fi
 

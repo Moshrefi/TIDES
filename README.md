@@ -87,6 +87,8 @@ python scripts/download.py --dataset hsergb
 
 Step-by-step walkthrough with expected results: [docs/run_eds_guide.md](docs/run_eds_guide.md).
 
+The whole real-data test, with paper references and automatic checks for each claim, is in one notebook: [notebooks/tides_real_test.ipynb](notebooks/tides_real_test.ipynb).
+
 ```bash
 # 1. sequence -> 4DGS scene (GT poses for EDS; --run_colmap for DSEC; --easi3r_dir for HS/BS-ERGB)
 python scripts/prepare_scene.py --preset eds --seq_dir data/eds/00_peanuts_dark \

@@ -7,5 +7,6 @@ h5py
 pillow
 tqdm
 # optional
+# jupyter matplotlib pandas   # notebooks/tides_real_test.ipynb
 # numba            # faster readout arbiter
 # huggingface_hub  # MonST3R weights for Easi3R

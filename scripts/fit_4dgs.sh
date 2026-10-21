@@ -11,7 +11,7 @@ CONFIG="${TIDES_4DGS_CONFIG:-$UP/arguments/hypernerf/default.py}"
 OUT="$ROOT/outputs/4dgs/$NAME"
 mkdir -p "$OUT"
 cd "$UP"
-python train.py -s "$SCENE" --port 6017 --expname "tides_$NAME" --configs "$CONFIG" --model_path "$OUT" "$@"
+"${PYTHON:-python}" train.py -s "$SCENE" --port 6017 --expname "tides_$NAME" --configs "$CONFIG" --model_path "$OUT" "$@"
 # Some 4DGaussians versions ignore --model_path and write to ./output/<expname>.
 if [ ! -d "$OUT/point_cloud" ] && [ -d "$UP/output/tides_$NAME/point_cloud" ]; then
   rmdir "$OUT" 2>/dev/null || true

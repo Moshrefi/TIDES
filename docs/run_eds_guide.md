@@ -81,7 +81,7 @@ which is the case the paper also handles with COLMAP. Start with about 2
 seconds (150 frames at 75 fps) so the first run is quick:
 
 ```bash
-conda install -c conda-forge colmap -y      # once, if `colmap` is not available
+conda create -n colmap -c conda-forge colmap -y   # once; separate env, found automatically
 python scripts/prepare_scene.py --preset evtween --seq_dir $SEQ \
     --out scenes/eds_00 --max_frames 150 --run_colmap
 ```

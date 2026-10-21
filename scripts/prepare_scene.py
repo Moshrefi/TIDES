@@ -111,10 +111,25 @@ def read_colmap_text(colmap_dir):
     return cams, imgs, (np.array(pts) if pts else None), (np.array(cols) if cols else None)
 
 
+def find_colmap() -> str:
+    """colmap on PATH, $COLMAP_BIN, or a separate conda env named 'colmap' (keeps it away from the torch env)."""
+    cands = [shutil.which("colmap"), os.environ.get("COLMAP_BIN"),
+             os.path.expanduser("~/.conda/envs/colmap/bin/colmap")]
+    prefix = os.environ.get("CONDA_PREFIX", "")
+    if prefix:  # .../envs/tides -> .../envs/colmap
+        cands.append(os.path.join(os.path.dirname(prefix), "colmap", "bin", "colmap"))
+    for c in cands:
+        if c and os.path.isfile(c) and os.access(c, os.X_OK):
+            print(f"[colmap] {c}")
+            return c
+    raise SystemExit("colmap not found. Install it in its own env (keeps your torch env untouched):\n"
+                     "  conda create -n colmap -c conda-forge colmap -y\n"
+                     "It is then found automatically; or set COLMAP_BIN=/path/to/colmap, or pass --colmap_dir.")
+
+
 def run_colmap(frames, work, K=None):
     """Sparse reconstruction. K (TIDES/COLMAP convention, pixel centres at +0.5) is kept fixed when given."""
-    if shutil.which("colmap") is None:
-        raise SystemExit("colmap not found; install it (conda install -c conda-forge colmap) or pass --colmap_dir")
+    exe = find_colmap()
     if os.path.isdir(work):
         shutil.rmtree(work)  # stale database / models from an earlier attempt
     img_dir = os.path.join(work, "images")
@@ -124,7 +139,7 @@ def run_colmap(frames, work, K=None):
     db = os.path.join(work, "database.db")
     sp = os.path.join(work, "sparse")
     os.makedirs(sp, exist_ok=True)
-    run = lambda *a: subprocess.check_call(["colmap", *a])  # noqa: E731
+    run = lambda *a: subprocess.check_call([exe, *a])  # noqa: E731
     if K is not None:
         cam = ["--ImageReader.camera_model", "PINHOLE", "--ImageReader.camera_params", ",".join(f"{v:.6f}" for v in K)]
         refine = ["--Mapper.ba_refine_focal_length", "0"]

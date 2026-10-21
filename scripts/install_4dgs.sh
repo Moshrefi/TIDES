@@ -18,7 +18,12 @@ echo "PyTorch CUDA $TORCH_CUDA, nvcc: $(nvcc --version | tail -1)"
 
 # Upstream requirements.txt pins torch==1.13.1; install the rest without touching torch.
 # yapf 0.40.1: newer yapf breaks mmcv 1.x Config loading.
-pip install "mmcv==1.6.0" "yapf==0.40.1" addict lpips plyfile pytorch_msssim open3d "imageio[ffmpeg]" tensorboard
+# mmcv 1.6.0 has no wheel and its setup.py needs pkg_resources, which setuptools>=81 removed:
+# build it against an older setuptools, without pip's isolated build env.
+# opencv < 4.11 and numpy < 2 keep the env compatible with torch builds made for NumPy 1.x.
+pip install "setuptools<70" wheel "numpy<2" "opencv-python<4.11"
+pip install --no-build-isolation "mmcv==1.6.0" "yapf==0.40.1"
+pip install addict lpips plyfile pytorch_msssim open3d "imageio[ffmpeg]" tensorboard "numpy<2"
 
 # Recent compilers need <cstdint> in the 3DGS rasterizer.
 H=$UP/submodules/depth-diff-gaussian-rasterization/cuda_rasterizer/rasterizer_impl.h

@@ -75,8 +75,8 @@ class ResidualComparator:
         self.cfg = cfg
         self.n = num_pixels
         gen = torch.Generator(device="cpu").manual_seed(cfg.seed)
-        Cp = cfg.C_pos + cfg.sigma_C * torch.randn(num_pixels, generator=gen)
-        Cn = cfg.C_neg + cfg.sigma_C * torch.randn(num_pixels, generator=gen)
+        Cp = cfg.C_pos + cfg.sigma_C * torch.randn(num_pixels, generator=gen, dtype=dtype)
+        Cn = cfg.C_neg + cfg.sigma_C * torch.randn(num_pixels, generator=gen, dtype=dtype)
         self.C_pos = Cp.clamp_min(cfg.C_min).to(device, dtype)
         self.C_neg = Cn.clamp_min(cfg.C_min).to(device, dtype)
         self.S_ref = None

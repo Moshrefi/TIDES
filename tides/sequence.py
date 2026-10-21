@@ -97,6 +97,15 @@ class Sequence:
                         np.asarray(d["R_w2c"]), np.asarray(d["t_w2c"]), event_camera=d.get("event_camera"),
                         meta=d.get("meta", {}))
 
+    def remap_events(self, ev: dict) -> dict:
+        """Map real events from the dataset's pixel grid to the grid this sequence renders."""
+        r = (self.meta or {}).get("remap")
+        if not r:
+            return dict(ev, width=self.size[0], height=self.size[1])
+        from .pinhole import PinholeRemap
+
+        return PinholeRemap.from_dict(r).remap_events(ev)
+
     def trajectory(self, camera: str = "rgb", scale: float = 1.0) -> CameraTrajectory:
         """Camera trajectory for rendering. camera='event' applies the event-camera extrinsics."""
         R, t = self.R_w2c.copy(), self.t_w2c.copy()

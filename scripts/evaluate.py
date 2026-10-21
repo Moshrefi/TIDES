@@ -33,10 +33,15 @@ def main():
     ap.add_argument("--t_end", type=float, default=None)
     ap.add_argument("--metrics_config", default="configs/metrics.yaml")
     ap.add_argument("--json", default=None)
+    ap.add_argument("--scene", default=None, help="prepare_scene.py output: maps real events to the rendered pixel grid")
     a = ap.parse_args()
 
     mc = MetricConfig(**(yaml.safe_load(open(a.metrics_config)) if os.path.exists(a.metrics_config) else {}))
     gt = load_events(a.gt) if a.gt else READERS[a.gt_dataset](a.gt_dir)
+    if a.scene:
+        from tides.sequence import Sequence
+
+        gt = Sequence.load(os.path.join(a.scene, "tides_sequence.json")).remap_events(gt)
     results = {}
     for p in a.pred:
         pr = load_events(p)

@@ -30,6 +30,7 @@ import sys
 import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from tides.pinhole import EDS_EVENT_CAM, PinholeRemap  # noqa: E402
 from tides.sequence import Sequence, quat_to_R, slerp_pose_c2w  # noqa: E402
 
 PRESETS = {
@@ -110,27 +111,47 @@ def read_colmap_text(colmap_dir):
     return cams, imgs, (np.array(pts) if pts else None), (np.array(cols) if cols else None)
 
 
-def run_colmap(frames, work):
+def run_colmap(frames, work, K=None):
+    """Sparse reconstruction. K (TIDES/COLMAP convention, pixel centres at +0.5) is kept fixed when given."""
     if shutil.which("colmap") is None:
         raise SystemExit("colmap not found; install it (conda install -c conda-forge colmap) or pass --colmap_dir")
+    if os.path.isdir(work):
+        shutil.rmtree(work)  # stale database / models from an earlier attempt
     img_dir = os.path.join(work, "images")
     os.makedirs(img_dir, exist_ok=True)
     for f in frames:
-        dst = os.path.join(img_dir, os.path.basename(f))
-        if not os.path.exists(dst):
-            os.symlink(os.path.abspath(f), dst)
+        os.symlink(os.path.abspath(f), os.path.join(img_dir, os.path.basename(f)))
     db = os.path.join(work, "database.db")
     sp = os.path.join(work, "sparse")
     os.makedirs(sp, exist_ok=True)
     run = lambda *a: subprocess.check_call(["colmap", *a])  # noqa: E731
-    run("feature_extractor", "--database_path", db, "--image_path", img_dir, "--ImageReader.single_camera", "1",
-        "--ImageReader.camera_model", "PINHOLE")
-    run("sequential_matcher", "--database_path", db)
-    run("mapper", "--database_path", db, "--image_path", img_dir, "--output_path", sp)
-    txt = os.path.join(work, "sparse_txt")
-    os.makedirs(txt, exist_ok=True)
-    run("model_converter", "--input_path", os.path.join(sp, "0"), "--output_path", txt, "--output_type", "TXT")
-    return txt
+    if K is not None:
+        cam = ["--ImageReader.camera_model", "PINHOLE", "--ImageReader.camera_params", ",".join(f"{v:.6f}" for v in K)]
+        refine = ["--Mapper.ba_refine_focal_length", "0"]
+    else:  # one focal length, principal point fixed at the image centre (what 4DGS assumes)
+        cam = ["--ImageReader.camera_model", "SIMPLE_PINHOLE"]
+        refine = []
+    run("feature_extractor", "--database_path", db, "--image_path", img_dir, "--ImageReader.single_camera", "1", *cam)
+    if len(frames) <= 300:
+        run("exhaustive_matcher", "--database_path", db)
+    else:
+        run("sequential_matcher", "--database_path", db, "--SequentialMatching.overlap", "20")
+    # Video frames have small baselines: allow a smaller triangulation angle to initialise.
+    run("mapper", "--database_path", db, "--image_path", img_dir, "--output_path", sp,
+        "--Mapper.init_min_tri_angle", "4", "--Mapper.ba_refine_principal_point", "0",
+        "--Mapper.ba_refine_extra_params", "0", *refine)
+    best, best_n = None, -1
+    for m in sorted(os.listdir(sp)):
+        txt = os.path.join(work, f"sparse_txt_{m}")
+        os.makedirs(txt, exist_ok=True)
+        run("model_converter", "--input_path", os.path.join(sp, m), "--output_path", txt, "--output_type", "TXT")
+        n = sum(1 for ln in open(os.path.join(txt, "images.txt")) if ln.strip() and not ln.startswith("#")) // 2
+        print(f"[colmap] model {m}: {n} images")
+        if n > best_n:
+            best, best_n = txt, n
+    if best is None:
+        raise SystemExit("COLMAP produced no model; try --stride 2 or 3 (larger baselines between frames)")
+    return best
 
 
 def read_easi3r(d, n_frames):
@@ -219,7 +240,9 @@ def export_hypernerf(seq: Sequence, out: str, near: float, far: float):
         ids.append(fid)
         im = Image.open(f).convert("RGB")
         im.save(os.path.join(out, "rgb/1x", fid + ".png"))
-        im.resize((W // 2, H // 2), Image.LANCZOS).save(os.path.join(out, "rgb/2x", fid + ".png"))
+        # 4DGaussians' HyperNeRF loader always reads rgb/2x; we put full-resolution frames there so the
+        # scene is fit at the resolution TIDES renders (the loader derives the FoV, not pixels, from the camera).
+        im.save(os.path.join(out, "rgb/2x", fid + ".png"))
         R, t = seq.R_w2c[i], seq.t_w2c[i]
         cam = dict(orientation=R.tolist(), position=(-R.T @ t).tolist(), focal_length=float(fx),
                    principal_point=[float(cx), float(cy)], skew=0.0, pixel_aspect_ratio=float(fy / fx),
@@ -248,7 +271,12 @@ def main():
     ap.add_argument("--colmap_dir")
     ap.add_argument("--run_colmap", action="store_true")
     ap.add_argument("--easi3r_dir")
-    ap.add_argument("--intrinsics", type=float, nargs=4, metavar=("FX", "FY", "CX", "CY"))
+    ap.add_argument("--intrinsics", type=float, nargs=4, metavar=("FX", "FY", "CX", "CY"),
+                    help="final pinhole intrinsics, pixel centres at +0.5 (COLMAP convention), no resampling")
+    ap.add_argument("--src_intrinsics", type=float, nargs=4, metavar=("FX", "FY", "CX", "CY"),
+                    help="source camera in OpenCV convention; frames are resampled to a centred pinhole")
+    ap.add_argument("--src_dist", type=float, nargs=4, default=None, metavar=("K1", "K2", "P1", "P2"))
+    ap.add_argument("--no_eds_calib", action="store_true", help="evtween preset: do not apply the EDS event-camera calibration")
     ap.add_argument("--t_start", type=float, default=None, help="seconds, absolute")
     ap.add_argument("--t_end", type=float, default=None)
     ap.add_argument("--stride", type=int, default=1)
@@ -292,10 +320,35 @@ def main():
             print(f"[warn] could not parse {calib}: {e}")
     points = colors = None
 
+    # Resample to a centred pinhole camera when the source camera is known (see tides/pinhole.py).
+    remap = None
+    align = os.path.join(a.seq_dir, "align.yaml")
+    if a.src_intrinsics:
+        remap = PinholeRemap(a.src_intrinsics, a.src_dist, (W, H))
+    elif a.preset == "evtween" and os.path.exists(align) and not a.no_eds_calib:
+        import yaml
+
+        y0, x0, _, _ = yaml.safe_load(open(align))["crop_yxyx"]
+        fx, fy, cx, cy = EDS_EVENT_CAM["intrinsics"]
+        remap = PinholeRemap((fx, fy, cx - x0, cy - y0), EDS_EVENT_CAM["dist"], (W, H))
+        print(f"[cam ] EDS event camera (Evtween crop at x0={x0}, y0={y0}), undistorted to a centred pinhole")
+    if remap is not None:
+        out_dir = os.path.join(a.out, "frames_pinhole")
+        os.makedirs(out_dir, exist_ok=True)
+        new = []
+        for i, f in enumerate(frames):
+            dst = os.path.join(out_dir, f"{i:06d}.png")
+            Image.fromarray(remap.remap_image(np.asarray(Image.open(f).convert("RGB")))).save(dst)
+            new.append(dst)
+        frames = new
+        W, H = remap.size_out
+        K = remap.intrinsics
+        print(f"[cam ] pinhole {W}x{H}, f = {K[0]:.1f}")
+
     tum = a.poses_tum or _first(a.seq_dir, pre.get("poses_tum"))
     colmap_dir = a.colmap_dir
     if a.run_colmap and not colmap_dir:
-        colmap_dir = run_colmap(frames, os.path.join(a.out, "colmap"))
+        colmap_dir = run_colmap(frames, os.path.join(a.out, "colmap"), K if remap is not None else None)
     if tum:
         tp, Rc, pc = read_tum(tum, a.tum_time_unit)
         R_c2w, p_c2w = slerp_pose_c2w(ts, tp, Rc, pc)
@@ -305,6 +358,9 @@ def main():
         keep = [i for i, f in enumerate(frames) if os.path.basename(f) in imgs]
         if len(keep) < len(frames):
             print(f"[warn] COLMAP registered {len(keep)}/{len(frames)} frames; dropping the rest")
+        if len(keep) < min(len(frames), max(10, 0.5 * len(frames))):
+            raise SystemExit(f"COLMAP registered only {len(keep)}/{len(frames)} frames. The camera moves too little "
+                             "between frames: rerun with --stride 2 (or 3), or a longer --max_frames.")
         frames = [frames[i] for i in keep]
         ts = ts[keep]
         Rw = np.stack([imgs[os.path.basename(f)][0] for f in frames])
@@ -313,7 +369,8 @@ def main():
         p_c2w = -np.einsum("nij,nj->ni", R_c2w, tw)
         fx, fy, cx, cy, cw, ch = cams[imgs[os.path.basename(frames[0])][2]]
         sx = W / cw
-        K = K or (fx * sx, fy * sx, cx * sx, cy * sx)
+        if remap is None:
+            K = K or (fx * sx, fy * sx, cx * sx, cy * sx)
         print(f"[pose] COLMAP from {colmap_dir}")
     elif a.easi3r_dir:
         R_c2w, p_c2w, Ks = read_easi3r(a.easi3r_dir, len(frames))
@@ -335,7 +392,8 @@ def main():
     R_w2c = R_c2w.transpose(0, 2, 1)
     t_w2c = -np.einsum("nij,nj->ni", R_w2c, p_c2w)
     seq = Sequence(frames, ts, K, (W, H), R_w2c, t_w2c, points, colors, ev_cam,
-                   meta=dict(preset=a.preset, seq_dir=os.path.abspath(a.seq_dir)))
+                   meta=dict(preset=a.preset, seq_dir=os.path.abspath(a.seq_dir),
+                             remap=remap.to_dict() if remap is not None else None))
     os.makedirs(a.out, exist_ok=True)
     export_hypernerf(seq, a.out, a.near, a.far)
     seq.save(os.path.join(a.out, "tides_sequence.json"))

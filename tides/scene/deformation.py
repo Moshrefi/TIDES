@@ -203,6 +203,8 @@ class Upstream4DGS(DynamicScene):
         self.g = gaussians
         self.sh_degree = sh_degree
         self.register_buffer("_ref", gaussians.get_xyz.detach()[:1].clone())
+        # Background the scene was trained with; TIDES must composite over the same one (Eq. 4).
+        self.background = tuple(getattr(gaussians, "tides_background", (1.0, 1.0, 1.0)))
 
     @staticmethod
     def from_model_dir(model_dir: str, iteration: int = -1, upstream_root: str = "third_party/4DGaussians",

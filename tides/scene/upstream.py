@@ -79,4 +79,6 @@ def load_upstream_gaussians(model_dir: str, iteration: int = -1, upstream_root: 
     gaussians.load_ply(os.path.join(d, "point_cloud.ply"))
     gaussians.load_model(d)
     gaussians._deformation.eval()
+    # 4DGS composites over white unless trained with white_background=False (arguments/__init__.py).
+    gaussians.tides_background = (1.0, 1.0, 1.0) if getattr(args, "white_background", True) else (0.0, 0.0, 0.0)
     return gaussians

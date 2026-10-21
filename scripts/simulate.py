@@ -82,6 +82,8 @@ def main():
         seq = Sequence.load(os.path.join(a.scene, "tides_sequence.json"))
         scene = Upstream4DGS.from_model_dir(a.model_dir, a.iteration, a.upstream, a.fourdgs_config)
         scene.set_time_mapping(seq.t0, seq.t1)
+        if "background" not in cfg_dict:
+            cfg.background = scene.background  # same background as 4DGS training
         cam = a.camera if seq.event_camera else "rgb"
         traj = seq.trajectory(cam, a.scale)
 

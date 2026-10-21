@@ -1,29 +1,25 @@
 #!/usr/bin/env bash
 # Clone the upstream code TIDES builds on (not vendored; see README for licences).
 #   - 4DGaussians (Wu et al., CVPR 2024): fits the dynamic Gaussian scene per sequence.
-#   - Easi3R (Chen et al., ICCV 2025): camera poses + sparse points for dynamic scenes.
-# COLMAP (static scenes) is a system binary: `conda install -c conda-forge colmap` or apt.
+#   - Easi3R (Chen et al., ICCV 2025), only with --easi3r: poses for dynamic scenes (HS-ERGB, BS-ERGB).
+# Installing 4DGaussians' Python deps and CUDA extensions: scripts/install_4dgs.sh (calls this first).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 mkdir -p third_party
 
-clone() {  # url dir [commit]
-  if [ ! -d "third_party/$2/.git" ]; then
-    git clone --recursive "$1" "third_party/$2"
-  else
-    echo "[skip] third_party/$2 exists"
-  fi
-  if [ -n "${3:-}" ]; then git -C "third_party/$2" checkout "$3"; fi
-}
+UP=third_party/4DGaussians
+if [ ! -d "$UP/.git" ]; then
+  git clone https://github.com/hustvl/4DGaussians.git "$UP"
+fi
+# Only the two CUDA submodules (skip the large SIBR viewer).
+git -C "$UP" submodule update --init submodules/depth-diff-gaussian-rasterization || true
+if ! git -C "$UP" submodule update --init submodules/simple-knn; then
+  echo "[warn] gitlab.inria.fr unreachable; using the GitHub mirror of simple-knn"
+  rm -rf "$UP/submodules/simple-knn"
+  git clone https://github.com/camenduru/simple-knn.git "$UP/submodules/simple-knn"
+fi
 
-clone https://github.com/hustvl/4DGaussians.git 4DGaussians
-clone https://github.com/Inception3D/Easi3R.git Easi3R
-
-cat <<'MSG'
-
-Next steps (inside your CUDA environment):
-  pip install -r third_party/4DGaussians/requirements.txt
-  pip install -e third_party/4DGaussians/submodules/depth-diff-gaussian-rasterization
-  pip install -e third_party/4DGaussians/submodules/simple-knn
-  # Easi3R (only for HS-ERGB / BS-ERGB poses): follow third_party/Easi3R/README.md
-MSG
+if [ "${1:-}" = "--easi3r" ] && [ ! -d third_party/Easi3R/.git ]; then
+  git clone --recursive https://github.com/Inception3D/Easi3R.git third_party/Easi3R
+fi
+echo "third_party ready"

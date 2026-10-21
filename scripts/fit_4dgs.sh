@@ -6,7 +6,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SCENE="$(cd "$1" && pwd)"; NAME="$2"; shift 2
 UP="$ROOT/third_party/4DGaussians"
-[ -d "$UP" ] || { echo "run scripts/setup_third_party.sh first"; exit 1; }
+[ -d "$UP" ] || { echo "4DGaussians is not installed: run  bash scripts/install_4dgs.sh  first"; exit 1; }
 CONFIG="${TIDES_4DGS_CONFIG:-$UP/arguments/hypernerf/default.py}"
 OUT="$ROOT/outputs/4dgs/$NAME"
 mkdir -p "$OUT"

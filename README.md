@@ -34,7 +34,8 @@ tides/
   sequence.py  frames + timestamps + poses shared by all scripts
 scripts/
   download.py         datasets and pretrained weights (automatic, resumable)
-  setup_third_party.sh  clones 4DGaussians and Easi3R
+  setup_third_party.sh  clones 4DGaussians (and Easi3R with --easi3r)
+  install_4dgs.sh     setup_third_party.sh + builds the 4DGS CUDA extensions
   prepare_scene.py    dataset sequence -> 4DGS training scene + tides_sequence.json
   fit_4dgs.sh         fits the dynamic Gaussian scene
   simulate.py         runs TIDES
@@ -57,10 +58,8 @@ python scripts/demo_synthetic.py   # synthetic comparison, no downloads
 To fit scenes you also need the official 4DGaussians code and its CUDA rasterizer:
 
 ```bash
-bash scripts/setup_third_party.sh
-pip install -r third_party/4DGaussians/requirements.txt
-pip install -e third_party/4DGaussians/submodules/depth-diff-gaussian-rasterization
-pip install -e third_party/4DGaussians/submodules/simple-knn
+module load cuda/<version matching torch.version.cuda>   # on a cluster
+bash scripts/install_4dgs.sh      # clones 4DGaussians, builds its rasterizer and simple-knn
 ```
 
 ## Data and weights

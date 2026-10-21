@@ -36,14 +36,14 @@ pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
 pip install -r requirements.txt
 pytest -q                                  # 12 tests, all must pass
 
-bash scripts/setup_third_party.sh          # clones 4DGaussians + Easi3R into third_party/
-pip install -r third_party/4DGaussians/requirements.txt
-pip install -e third_party/4DGaussians/submodules/depth-diff-gaussian-rasterization
-pip install -e third_party/4DGaussians/submodules/simple-knn
+# 4DGaussians + its CUDA rasterizer. Run on a GPU node, with the CUDA toolkit
+# that matches torch (python -c "import torch; print(torch.version.cuda)"):
+module load cuda/12.1                      # or whatever matches
+bash scripts/install_4dgs.sh               # clones, patches and builds; ends with an import check
 ```
 
-If the two `submodules` installs fail, the CUDA toolkit is not visible. Load it
-first, for example with `module load cuda/12.1` on your cluster, then retry.
+`install_4dgs.sh` stops with a clear message if `nvcc` is missing or does not
+match torch's CUDA version.
 
 Quick check that the simulator runs on the GPU (about a minute):
 
@@ -86,12 +86,16 @@ python scripts/prepare_scene.py --preset evtween --seq_dir $SEQ \
     --out scenes/eds_00 --max_frames 150 --run_colmap
 ```
 
-* COLMAP prints how many frames it registered. If it drops many, use
-  `--stride 2`, which gives it larger baselines.
-* At the end the script prints the frame count and duration. Check that they look right.
-* Small caveat: the converted frames keep the event camera's mild lens
-  distortion, and TIDES renders an ideal pinhole camera, so pixels near the
-  border can be off by about a pixel.
+* The Evtween frames are in the event camera's pixel grid, with its lens
+  distortion and an off-centre principal point. 4DGS only supports a centred,
+  undistorted pinhole camera, so the script first resamples the frames to one
+  (`scenes/eds_00/frames_pinhole`, about 432x314) using the EDS event-camera
+  calibration. COLMAP then runs with these intrinsics fixed, so it only has to
+  find the poses. The same mapping is applied to the real events in step 6.
+* COLMAP prints how many frames it registered, and the script stops if fewer
+  than half are registered. Then rerun with `--stride 2` (or 3), which gives
+  larger baselines between frames.
+* If you rerun this step, delete the old output first: `rm -rf scenes/eds_00 outputs/4dgs/eds_00`.
 
 ## 4. Fit the 4D Gaussian scene (the slow step, ~30-60 min on an A100)
 
@@ -128,12 +132,13 @@ settings and timing. Contrast thresholds can be changed with, for example,
 ## 6. Compare with the real events
 
 ```bash
-python scripts/evaluate.py --gt_dataset evtween --gt_dir $SEQ \
+python scripts/evaluate.py --gt_dataset evtween --gt_dir $SEQ --scene scenes/eds_00 \
     --pred outputs/events/eds_00_10x.h5 --pred outputs/events/eds_00_adaptive.h5 \
     --pred outputs/events/eds_00_fd.h5 --json outputs/eds_00_metrics.json
 ```
 
-The evaluation only uses the time range covered by both streams.
+`--scene` moves the real events to the resampled pinhole grid that TIDES
+renders. The evaluation only uses the time range covered by both streams.
 
 ## 7. How to read the result against the paper
 

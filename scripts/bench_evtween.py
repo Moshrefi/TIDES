@@ -250,6 +250,12 @@ def cmd_score(a):
 # ----------------------------------------------------------------------------- batch
 def cmd_batch(a):
     bench_dir = Path(a.evtween).resolve() / "benchmarks" / "event_generation"
+    if not (bench_dir / "benchmark.py").exists():
+        raise SystemExit(f"{bench_dir}/benchmark.py not found: --evtween must be a checkout of the branch "
+                         "benchmark/event-generation. Without touching your current checkout:\n"
+                         f"  git -C {a.evtween} fetch origin benchmark/event-generation\n"
+                         f"  git -C {a.evtween} worktree add {Path(a.evtween).resolve()}-bench origin/benchmark/event-generation\n"
+                         f"then pass --evtween {Path(a.evtween).resolve()}-bench")
     sys.path.insert(0, str(bench_dir))
     import benchmark as B  # Evtween's own clip preparation and model runner
 

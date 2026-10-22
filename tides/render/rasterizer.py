@@ -89,6 +89,7 @@ def rasterize_tangent(
     tile_batch: int = 32,
     gauss_chunk: int = 256,
     coverage: str = "alpha",
+    gamma: float = 1.0,
 ) -> TangentRender:
     device = sg.uv.device
     dtype = sg.uv.dtype
@@ -231,6 +232,10 @@ def rasterize_tangent(
     lw = torch.tensor(lum_weights, dtype=dtype, device=device)
     Y = rgb @ lw
     Yd = rgb_dot @ lw
+    if gamma != 1.0:  # frames are gamma-encoded: linear light = value^gamma (chain rule for the tangent)
+        Yc = Y.clamp_min(0.0)
+        Yd = gamma * Yc.clamp_min(1e-12) ** (gamma - 1.0) * Yd
+        Y = Yc ** gamma
     L = torch.log(Y + log_eps)  # Eq. 5
     Ld = Yd / (Y + log_eps)  # Eq. 15
 

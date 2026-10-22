@@ -37,6 +37,7 @@ class RenderConfig:
     tile_batch: int = 32
     gauss_chunk: int = 256
     coverage: str = "alpha"  # how b is defined: "alpha" (sum of weights) | "tau_sum"
+    gamma: float = 1.0  # rendered value^gamma = linear light (Evtween: 2.2 for BS-ERGB, 1.0 otherwise)
 
 
 @dataclass
@@ -102,7 +103,8 @@ class TIDES:
             self.stats["tile_renders"] += int(len(tiles))
         return rasterize_tangent(sg, self.W, self.H, bg, bgd, tiles=tiles, tile=rc.tile, tau_max=rc.tau_max,
                                  alpha_min=rc.alpha_min, T_min=rc.T_min, log_eps=rc.log_eps,
-                                 tile_batch=rc.tile_batch, gauss_chunk=rc.gauss_chunk, coverage=rc.coverage)
+                                 tile_batch=rc.tile_batch, gauss_chunk=rc.gauss_chunk, coverage=rc.coverage,
+                                 gamma=rc.gamma)
 
     def _signal(self, r: TangentRender):
         X, Xd = self.frontend.spatial(r.L, r.L_dot)

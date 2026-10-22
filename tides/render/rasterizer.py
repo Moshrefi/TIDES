@@ -66,7 +66,7 @@ def _bin_gaussians(sg: ScreenGaussians, width: int, height: int, tile: int):
     tx = x0[gid] + local % nx[gid]
     ty = y0[gid] + local // nx[gid]
     tid = ty * n_tx + tx
-    depth_rank = torch.empty_like(gid)
+    depth_rank = torch.empty(len(u), dtype=torch.long, device=device)
     depth_rank[torch.argsort(sg.depth)] = torch.arange(len(u), device=device)
     key = tid * len(u) + depth_rank[gid]
     order = torch.argsort(key)
@@ -141,6 +141,9 @@ def rasterize_tangent(
         cnt = torch.zeros(B, n_px, dtype=dtype, device=device)
         bsum = torch.zeros(B, n_px, dtype=dtype, device=device)
         tsum = torch.zeros(B, n_px, dtype=dtype, device=device)
+        # Once early termination fires, later chunks must not resume this pixel.
+        # T itself remains the value BEFORE the rejected splat (3DGS convention).
+        alive = torch.ones(B, n_px, dtype=torch.bool, device=device)
 
         counts = tile_count[tb]
         starts = tile_start[tb]
@@ -190,7 +193,8 @@ def rasterize_tangent(
             # T_before * (1 - tau) >= T_min. T is monotone, so this is a prefix.
             one_m = 1.0 - tau
             T_incl = T[..., None] * torch.cumprod(one_m, dim=-1)
-            included = (T_incl >= T_min) & keep
+            included = alive[..., None] & (T_incl >= T_min) & keep
+            alive = alive & ~(T_incl < T_min).any(dim=-1)
             tau = torch.where(included, tau, torch.zeros_like(tau))
             tau_dot = torch.where(included, tau_dot, torch.zeros_like(tau_dot))
             one_m = 1.0 - tau
@@ -213,7 +217,7 @@ def rasterize_tangent(
             tsum = tsum + tau.sum(-1)
             T = T_after[..., -1]
             Td = Td_after[..., -1]
-            if bool((T < T_min).all()):
+            if not bool(alive.any()):
                 break
 
         f = flat.reshape(-1)
@@ -263,3 +267,4 @@ def pixel_tile_ids(width: int, height: int, tile: int = 16, device="cpu") -> tor
     ys = torch.arange(height, device=device) // tile
     xs = torch.arange(width, device=device) // tile
     return ys[:, None] * n_tx + xs[None, :]
+

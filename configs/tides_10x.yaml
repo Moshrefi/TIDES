@@ -1,9 +1,9 @@
 # TIDES with a fixed 10x query budget (Table 1, "TIDES (10x)").
+# background: taken from the fitted 4DGS scene (white by default). Set it here only to override.
 queries_per_frame: 10
 adaptive: false
 slope: analytic
 mask_mixed: true
-background: [0.0, 0.0, 0.0]
 render:
   tile: 16
   tau_max: 0.99

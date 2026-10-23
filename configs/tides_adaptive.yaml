@@ -1,10 +1,10 @@
 # TIDES with risk-guided adaptive sub-stepping (Table 1, "TIDES (adaptive)").
+# background: taken from the fitted 4DGS scene (white by default). Set it here only to override.
 queries_per_frame: 10
 adaptive: true
 max_sub: 8
 slope: analytic
 mask_mixed: true
-background: [0.0, 0.0, 0.0]
 render:
   tile: 16
   tau_max: 0.99

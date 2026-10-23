@@ -64,7 +64,7 @@ def compare(name: str, s: Sample, h: float, rtol: float = RTOL) -> dict:
     fd = (fp - fm) / (2 * h)
     right, left = (fp - f0) / h, (f0 - fm) / h
     finite = torch.isfinite(fd) & torch.isfinite(an) & torch.isfinite(right) & torch.isfinite(left)
-    scale = float(torch.quantile(fd[finite].abs(), 0.99)) if finite.any() else 0.0
+    scale = float(np.quantile(fd[finite].abs().numpy(), 0.99)) if finite.any() else 0.0
     if scale == 0.0 and finite.any():
         scale = float(fd[finite].abs().max())
     noise = 8 * eps * (fp.abs() + fm.abs() + f0.abs()) / h  # round-off floor of the finite difference
@@ -92,7 +92,7 @@ def compare(name: str, s: Sample, h: float, rtol: float = RTOL) -> dict:
         stage=name, n=n, n_smooth=n_smooth, n_moving=int(moving.sum()), nonsmooth_frac=frac_ns,
         bad=int(bad.sum()), bad_frac=frac_bad,
         median_rel=float(rel.median()) if n_smooth else math.nan,
-        p999_rel=float(torch.quantile(rel, 0.999)) if n_smooth else math.nan,
+        p999_rel=float(np.quantile(rel.numpy(), 0.999)) if n_smooth else math.nan,
         derivative_scale=scale, verdict=verdict, worst=worst,
     )
 

@@ -213,15 +213,35 @@ class Upstream4DGS(DynamicScene):
 
         return Upstream4DGS(load_upstream_gaussians(model_dir, iteration, upstream_root, config))
 
-    def raw(self, t: torch.Tensor):
-        from .upstream import patched_grid_sample
+    def _apply(self, fn, *args, **kwargs):
+        # The official GaussianModel is not an nn.Module: move / cast its tensors and
+        # its deformation network too, so scene.double() and scene.to(device) work.
+        super()._apply(fn, *args, **kwargs)
+        g = self.g
+        for name, v in list(vars(g).items()):
+            if isinstance(v, nn.Module):
+                v._apply(fn)
+            elif isinstance(v, torch.Tensor):
+                nv = fn(v.detach())
+                setattr(g, name, nn.Parameter(nv, requires_grad=v.requires_grad) if isinstance(v, nn.Parameter) else nv)
+        return self
 
+    def _deform(self, t: torch.Tensor):
         g = self.g
         n = g.get_xyz.shape[0]
         tt = t.reshape(1, 1).expand(n, 1)
+        return g._deformation(g._xyz, g._scaling, g._rotation, g._opacity, g.get_features, tt)
+
+    def raw(self, t: torch.Tensor):
+        from .upstream import patched_grid_sample
+
         with patched_grid_sample():
-            mu, s, q, o, sh = g._deformation(g._xyz, g._scaling, g._rotation, g._opacity, g.get_features, tt)
+            mu, s, q, o, sh = self._deform(t)
         return mu, s, q, o, sh
+
+    def raw_official(self, t: torch.Tensor):
+        """Same forward pass with the official F.grid_sample (no tangent support), for checking."""
+        return self._deform(t)
 
 
 class AnalyticScene(DynamicScene):

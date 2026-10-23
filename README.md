@@ -40,6 +40,7 @@ scripts/
   fit_4dgs.sh         fits the dynamic Gaussian scene
   simulate.py         runs TIDES
   evaluate.py         metrics against real events
+  check_derivative.py float64 stage-by-stage check of the analytic derivatives (PASS / FAIL JSON)
   bench_evtween.py    TIDES + fidelity scoring inside Evtween's benchmark (docs/evtween_benchmark.md)
   demo_synthetic.py   no-download sanity check
 configs/              10x and adaptive settings, ablation overlays, metric settings

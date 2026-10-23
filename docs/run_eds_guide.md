@@ -108,6 +108,19 @@ Sanity check: 4DGaussians writes test renders and PSNR values under
 `outputs/4dgs/eds_00`. If the renders look blurry or wrong, fix this step
 before going further. The events can only be as good as this scene.
 
+Then check the analytic time derivatives on this scene (Sec. 3.2, Eq. 6-15),
+about a minute on a GPU:
+
+```bash
+python scripts/check_derivative.py --model_dir outputs/4dgs/eds_00 --scene scenes/eds_00
+```
+
+It compares every analytic derivative with a float64 finite difference, stage
+by stage: deformation JVP (Eq. 6), activations (Eq. 7-8), camera, projection,
+compositing and L_dot (Eq. 9-15). It prints one row per stage and ends with
+`DERIVATIVE CHECK: PASS` or `FAIL (first failing stage: ...)`. The verdict is
+saved to `outputs/4dgs/eds_00/derivative_check.json`.
+
 ## 5. Simulate events
 
 ```bash
